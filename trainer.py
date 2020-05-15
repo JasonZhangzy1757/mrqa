@@ -104,9 +104,10 @@ class BaseTrainer(object):
             start_positions = start_positions.cuda(self.args.gpu, non_blocking=True)
             end_positions = end_positions.cuda(self.args.gpu, non_blocking=True)
             
-            try:
+            
                 model = self.bert.to('cuda')
                 model = nn.DataParallel(model)
+            try:
                 outpus = model(input_ids)
                 sequence_output = torch.stack(outpus[0])
                 logits = self.qa_outputs(sequence_output)
@@ -115,6 +116,9 @@ class BaseTrainer(object):
                     print("WARNING: out of memory")
                     if hasattr(torch.cuda, 'empty_cache'):
                         torch.cuda.empty_cache()
+                        outpus = model(input_ids)
+                        sequence_output = torch.stack(outpus[0])
+                        logits = self.qa_outputs(sequence_output)
                 else:
                     raise exception
             log_prob = F.log_softmax(logits, dim=0)
@@ -125,25 +129,19 @@ class BaseTrainer(object):
             #)
           
         # estimate the fisher information of the parameters.
-        try:
-            loglikelihoods = torch.cat(loglikelihoods).unbind()
-            #loglikelihoods = Variable(loglikelihoods, requires_grad=True)
-            loglikelihood_grads = zip(*[autograd.grad(
-                l, self.model.parameters(),
-                retain_graph=(i < len(loglikelihoods))
-            ) for i, l in enumerate(loglikelihoods, 1)])
-            loglikelihood_grads = [torch.stack(gs) for gs in loglikelihood_grads]
-            fisher_diagonals = [(g ** 2).mean(0) for g in loglikelihood_grads]
-            param_names = [
-                n.replace('.', '__') for n, p in self.named_parameters()
-            ]
-        except RuntimeError as exception:
-                if "out of memory" in str(exception):
-                    print("WARNING: out of memory")
-                    if hasattr(torch.cuda, 'empty_cache'):
-                        torch.cuda.empty_cache()
-                else:
-                    raise exception
+        torch.cuda.empty_cache()
+        loglikelihoods = torch.cat(loglikelihoods).unbind()
+        #loglikelihoods = Variable(loglikelihoods, requires_grad=True)
+        loglikelihood_grads = zip(*[autograd.grad(
+            l, self.model.parameters(),
+            retain_graph=(i < len(loglikelihoods))
+        ) for i, l in enumerate(loglikelihoods, 1)])
+        loglikelihood_grads = [torch.stack(gs) for gs in loglikelihood_grads]
+        fisher_diagonals = [(g ** 2).mean(0) for g in loglikelihood_grads]
+        param_names = [
+            n.replace('.', '__') for n, p in self.named_parameters()
+        ]
+      
                     
         return {n: f.detach() for n, f in zip(param_names, fisher_diagonals)}
 
