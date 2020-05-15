@@ -88,9 +88,9 @@ class BaseTrainer(object):
         for i, batch in enumerate(data_loader, start=1):
             input_ids, input_mask, seg_ids, start_positions, end_positions, _ = batch
             
-            seq_len = torch.sum(torch.sign(input_ids), 1).detach()
-            max_len = torch.max(seq_len).detach()
-          
+            seq_len = torch.sum(torch.sign(input_ids), 1).detach()
+            max_len = torch.max(seq_len).detach()
+            
             
            #if self.args.use_cuda:
            #    input_ids = input_ids.cuda(self.args.gpu, non_blocking=True)
