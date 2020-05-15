@@ -87,8 +87,9 @@ class BaseTrainer(object):
         loglikelihoods = []
         for i, batch in enumerate(data_loader, start=1):
             input_ids, input_mask, seg_ids, start_positions, end_positions, _ = batch
-            seq_len = torch.sum(torch.sign(input_ids), 1)
-            max_len = torch.max(seq_len)
+            
+            seq_len = torch.sum(torch.sign(input_ids), 1).detach()
+            max_len = torch.max(seq_len).detach()
           
             
            #if self.args.use_cuda:
@@ -97,21 +98,21 @@ class BaseTrainer(object):
            #    seg_ids = seg_ids.cuda(self.args.gpu, non_blocking=True)
            #    start_positions = start_positions.cuda(self.args.gpu, non_blocking=True)
            #    end_positions = end_positions.cuda(self.args.gpu, non_blocking=True)
-            #input_ids = input_ids[:, :max_len].cuda(self.args.gpu, non_blocking=True)
-            #input_mask = input_mask[:, :max_len].cuda(self.args.gpu, non_blocking=True)
-            #seg_ids = seg_ids[:, :max_len].cuda(self.args.gpu, non_blocking=True)
-            #start_positions = start_positions.cuda(self.args.gpu, non_blocking=True)
-            #end_positions = end_positions.cuda(self.args.gpu, non_blocking=True)
-           #
-            #model = self.bert.to('cuda')
-           #
-            #logits = self.qa_outputs(torch.stack(model(
-            #    input_ids,
-            #    attention_mask=input_mask,
-            #    token_type_ids=seg_ids
-            #)[0]))
-            #log_prob = F.log_softmax(logits, dim=0)
-            log_prob = F.log_softmax(torch.rand(len(seq_len),1), dim=0)
+            input_ids = input_ids[:, :max_len].cuda(self.args.gpu, non_blocking=True)
+            input_mask = input_mask[:, :max_len].cuda(self.args.gpu, non_blocking=True)
+            seg_ids = seg_ids[:, :max_len].cuda(self.args.gpu, non_blocking=True)
+            start_positions = start_positions.cuda(self.args.gpu, non_blocking=True)
+            end_positions = end_positions.cuda(self.args.gpu, non_blocking=True)
+            
+            model = self.bert.to('cuda')
+            
+            logits = self.qa_outputs(torch.stack(model(
+                input_ids,
+                attention_mask=input_mask,
+                token_type_ids=seg_ids
+            )[0]))
+            log_prob = F.log_softmax(logits, dim=0)
+            #log_prob = F.log_softmax(torch.rand(len(seq_len),1), dim=0)
             loglikelihoods.append(log_prob)
                 
                 #F.log_softmax(self(x), dim=1)[range(batch_size), y.data]
@@ -119,7 +120,7 @@ class BaseTrainer(object):
           
         # estimate the fisher information of the parameters.
         loglikelihoods = torch.cat(loglikelihoods).unbind()
-        loglikelihoods = Variable(loglikelihoods, requires_grad=True)
+        #loglikelihoods = Variable(loglikelihoods, requires_grad=True)
         loglikelihood_grads = zip(*[autograd.grad(
             l, self.model.parameters(),
             retain_graph=(i < len(loglikelihoods))
