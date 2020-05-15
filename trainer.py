@@ -29,7 +29,7 @@ from torch import autograd
 from pytorch_pretrained_bert import BertModel, BertConfig
 import torch.nn as nn
 import torch.nn.functional as F
-import tqdm
+from tqdm import tqdm
 
 def get_opt(param_optimizer, num_train_optimization_steps, args):
     """
@@ -71,7 +71,7 @@ class BaseTrainer(object):
         self.bert = BertModel.from_pretrained("bert-base-uncased")
         #self.bert = BertModel(BertConfig())
         
-        self.qa_outputs = nn.Linear(self.args.hidden_size, 2).to('cuda')
+        self.qa_outputs = nn.Linear(self.args.hidden_size, 2)
         # init weight
         self.tokenizer = BertTokenizer.from_pretrained(args.bert_model,
                                                        do_lower_case=args.do_lower_case)
