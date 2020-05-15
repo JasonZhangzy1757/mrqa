@@ -30,6 +30,7 @@ from pytorch_pretrained_bert import BertModel, BertConfig
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
+import gc
 
 def get_opt(param_optimizer, num_train_optimization_steps, args):
     """
@@ -86,49 +87,38 @@ class BaseTrainer(object):
         
         # sample loglikelihoods from the dataset.
         loglikelihoods = []
-        for i, batch in enumerate(data_loader, start=1):
-            input_ids, input_mask, seg_ids, start_positions, end_positions, _ = batch
-            seq_len = torch.sum(torch.sign(input_ids),1).detach()
-            max_len = torch.max(seq_len).detach()
-            
-            
-           #if self.args.use_cuda:
-           #    input_ids = input_ids.cuda(self.args.gpu, non_blocking=True)
-           #    input_mask = input_mask.cuda(self.args.gpu, non_blocking=True)
-           #    seg_ids = seg_ids.cuda(self.args.gpu, non_blocking=True)
-           #    start_positions = start_positions.cuda(self.args.gpu, non_blocking=True)
-           #    end_positions = end_positions.cuda(self.args.gpu, non_blocking=True)
-            input_ids = input_ids[:, :max_len].cuda(self.args.gpu, non_blocking=True)
-            input_mask = input_mask[:, :max_len].cuda(self.args.gpu, non_blocking=True)
-            seg_ids = seg_ids[:, :max_len].cuda(self.args.gpu, non_blocking=True)
-            start_positions = start_positions.cuda(self.args.gpu, non_blocking=True)
-            end_positions = end_positions.cuda(self.args.gpu, non_blocking=True)
-            
-            try:
+        with torch.no_grad():
+
+            for i, batch in enumerate(data_loader, start=1):
+                input_ids, input_mask, seg_ids, start_positions, end_positions, _ = batch
+                seq_len = torch.sum(torch.sign(input_ids), 1).detach()
+                max_len = torch.max(seq_len).detach()
+
+                input_ids = input_ids[:, :max_len].cuda(self.args.gpu, non_blocking=True)
+                input_mask = input_mask[:, :max_len].cuda(self.args.gpu, non_blocking=True)
+                seg_ids = seg_ids[:, :max_len].cuda(self.args.gpu, non_blocking=True)
+                start_positions = start_positions.cuda(self.args.gpu, non_blocking=True)
+                end_positions = end_positions.cuda(self.args.gpu, non_blocking=True)
+
                 model = self.bert.to('cuda')
-                model = nn.DataParallel(model)
-                outpus = model(input_ids)
-                sequence_output = torch.stack(outpus[0])
-                logits = self.qa_outputs(sequence_output)
-            except RuntimeError as exception:
-                if "out of memory" in str(exception):
-                    print("WARNING: out of memory")
-                    if hasattr(torch.cuda, 'empty_cache'):
-                        torch.cuda.empty_cache()
-                else:
-                    raise exception
-            
-            log_prob = F.log_softmax(logits, dim=0)
-            #log_prob = F.log_softmax(torch.rand(len(seq_len),1), dim=0)
-            loglikelihoods.append(log_prob)
-                
-                #F.log_softmax(self(x), dim=1)[range(batch_size), y.data]
-            #)
+
+                x=model(
+                   input_ids,
+                   attention_mask=input_mask,
+                   token_type_ids=seg_ids
+                )[0]
+                x=torch.stack(x)
+                logits = self.qa_outputs(x)
+                log_prob = F.log_softmax(logits, dim=0)
+                #log_prob = F.log_softmax(torch.rand(len(seq_len),1), dim=0)
+                loglikelihoods.append(log_prob)
+                gc.collect()
+                    #F.log_softmax(self(x), dim=1)[range(batch_size), y.data]
+                #)
           
         # estimate the fisher information of the parameters.
-        torch.cuda.empty_cache()
         loglikelihoods = torch.cat(loglikelihoods).unbind()
-        #loglikelihoods = Variable(loglikelihoods, requires_grad=True)
+        loglikelihoods = torch.tensor(loglikelihoods).to('cuda')
         loglikelihood_grads = zip(*[autograd.grad(
             l, self.model.parameters(),
             retain_graph=(i < len(loglikelihoods))
@@ -138,8 +128,6 @@ class BaseTrainer(object):
         param_names = [
             n.replace('.', '__') for n, p in self.named_parameters()
         ]
-      
-                    
         return {n: f.detach() for n, f in zip(param_names, fisher_diagonals)}
 
     
