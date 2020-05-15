@@ -100,19 +100,20 @@ class BaseTrainer(object):
             
             model = self.bert.to('cuda')
             model = nn.DataParallel(model)
-            try:	
-                model = self.bert.to('cuda')	                
-                model = nn.DataParallel(model)	
-                outpus = model(input_ids)	                
-                sequence_output = torch.stack(outpus[0])	                   
-                logits = self.qa_outputs(sequence_output)	                 
-            except RuntimeError as exception:	                
-                if "out of memory" in str(exception):	            
-                    print("WARNING: out of memory")	              
-                    if hasattr(torch.cuda, 'empty_cache'):	                
-                        torch.cuda.empty_cache()	                
-                else:	                
-                    raise exception	              
+            done = False
+            while not done:
+                try:
+                    outpus = model(input_ids)	                
+                    sequence_output = torch.stack(outpus[0])	                   
+                    logits = self.qa_outputs(sequence_output)	 
+                    done = True                
+                except RuntimeError as exception:	                
+                    if "out of memory" in str(exception):	            
+                        print("WARNING: out of memory")	              
+                        if hasattr(torch.cuda, 'empty_cache'):	                
+                            torch.cuda.empty_cache()	                
+                    else:	                
+                        raise exception	              
                     
             log_prob = F.log_softmax(logits, dim=0)	        
             #log_prob = F.log_softmax(torch.rand(len(seq_len),1), dim=0)
