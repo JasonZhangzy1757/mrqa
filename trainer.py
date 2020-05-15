@@ -105,8 +105,8 @@ class BaseTrainer(object):
             end_positions = end_positions.cuda(self.args.gpu, non_blocking=True)
             
             
-                model = self.bert.to('cuda')
-                model = nn.DataParallel(model)
+            model = self.bert.to('cuda')
+            model = nn.DataParallel(model)
             try:
                 outpus = model(input_ids)
                 sequence_output = torch.stack(outpus[0])
