@@ -105,17 +105,20 @@ class BaseTrainer(object):
                 x=model(input_ids)[0]
                 x=torch.stack(x)
                 logits = self.qa_outputs(x)
-                log_prob = F.log_softmax(logits, dim=0)
-                #log_prob = F.log_softmax(torch.rand(len(seq_len),1), dim=0)
-                loglikelihoods.append(log_prob)
-
+                
             except RuntimeError as exception:
                 if "out of memory" in str(exception):
                     print("WARNING: out of memory")
                     if hasattr(torch.cuda, 'empty_cache'):
                         torch.cuda.empty_cache()
+                        x=torch.stack(x)
+                        logits = self.qa_outputs(x)
                 else:
                     raise exception
+            
+            log_prob = F.log_softmax(logits, dim=0)
+            #log_prob = F.log_softmax(torch.rand(len(seq_len),1), dim=0)
+            loglikelihoods.append(log_prob)
 
 
             
