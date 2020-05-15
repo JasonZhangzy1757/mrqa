@@ -84,10 +84,8 @@ class BaseTrainer(object):
       
      
     def estimate_fisher(self, data_loader, sample_size, batch_size=32):
-        
         # sample loglikelihoods from the dataset.
         loglikelihoods = []
-        
 
         for i, batch in enumerate(data_loader, start=1):
             input_ids, input_mask, seg_ids, start_positions, end_positions, _ = batch
@@ -101,28 +99,24 @@ class BaseTrainer(object):
             end_positions = end_positions.cuda(self.args.gpu, non_blocking=True)
             
             model = self.bert.to('cuda')
+            model = nn.DataParallel(model)
             try:
-                x=model(input_ids)[0]
-                x=torch.stack(x)
-                logits = self.qa_outputs(x)
-                
+                outpus = model(input_ids)
+                sequence_output = torch.stack(outpus[0])
+                logits = self.qa_outputs(sequence_output)
             except RuntimeError as exception:
                 if "out of memory" in str(exception):
                     print("WARNING: out of memory")
                     if hasattr(torch.cuda, 'empty_cache'):
                         torch.cuda.empty_cache()
-                        x=torch.stack(x)
-                        logits = self.qa_outputs(x)
+                        sequence_output = torch.stack(outpus[0])
+                        logits = self.qa_outputs(sequence_output)
                 else:
                     raise exception
-            
             log_prob = F.log_softmax(logits, dim=0)
             #log_prob = F.log_softmax(torch.rand(len(seq_len),1), dim=0)
             loglikelihoods.append(log_prob)
 
-
-            
-            gc.collect()
                  #F.log_softmax(self(x), dim=1)[range(batch_size), y.data]
              #)
           
