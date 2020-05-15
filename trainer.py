@@ -86,7 +86,7 @@ class BaseTrainer(object):
         
         # sample loglikelihoods from the dataset.
         loglikelihoods = []
-        for i, batch in tqdm(enumerate(data_loader, start=1)):
+        for i, batch in enumerate(data_loader, start=1):
             input_ids, input_mask, seg_ids, start_positions, end_positions, _ = batch
             seq_len = torch.sum(torch.sign(input_ids),1).detach()
             max_len = torch.max(seq_len).detach()
@@ -125,17 +125,26 @@ class BaseTrainer(object):
             #)
           
         # estimate the fisher information of the parameters.
-        loglikelihoods = torch.cat(loglikelihoods).unbind()
-        #loglikelihoods = Variable(loglikelihoods, requires_grad=True)
-        loglikelihood_grads = zip(*[autograd.grad(
-            l, self.model.parameters(),
-            retain_graph=(i < len(loglikelihoods))
-        ) for i, l in enumerate(loglikelihoods, 1)])
-        loglikelihood_grads = [torch.stack(gs) for gs in loglikelihood_grads]
-        fisher_diagonals = [(g ** 2).mean(0) for g in loglikelihood_grads]
-        param_names = [
-            n.replace('.', '__') for n, p in self.named_parameters()
-        ]
+        try:
+            loglikelihoods = torch.cat(loglikelihoods).unbind()
+            #loglikelihoods = Variable(loglikelihoods, requires_grad=True)
+            loglikelihood_grads = zip(*[autograd.grad(
+                l, self.model.parameters(),
+                retain_graph=(i < len(loglikelihoods))
+            ) for i, l in enumerate(loglikelihoods, 1)])
+            loglikelihood_grads = [torch.stack(gs) for gs in loglikelihood_grads]
+            fisher_diagonals = [(g ** 2).mean(0) for g in loglikelihood_grads]
+            param_names = [
+                n.replace('.', '__') for n, p in self.named_parameters()
+            ]
+        except RuntimeError as exception:
+                if "out of memory" in str(exception):
+                    print("WARNING: out of memory")
+                    if hasattr(torch.cuda, 'empty_cache'):
+                        torch.cuda.empty_cache()
+                else:
+                    raise exception
+                    
         return {n: f.detach() for n, f in zip(param_names, fisher_diagonals)}
 
     
