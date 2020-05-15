@@ -82,6 +82,7 @@ class BaseTrainer(object):
       
      
     def estimate_fisher(self, data_loader, sample_size, batch_size=32):
+        
         # sample loglikelihoods from the dataset.
         loglikelihoods = []
         for i, batch in enumerate(data_loader, start=1):
@@ -96,20 +97,19 @@ class BaseTrainer(object):
            #    seg_ids = seg_ids.cuda(self.args.gpu, non_blocking=True)
            #    start_positions = start_positions.cuda(self.args.gpu, non_blocking=True)
            #    end_positions = end_positions.cuda(self.args.gpu, non_blocking=True)
-                     
-           input_ids = input_ids[:, :max_len].cuda(self.args.gpu, non_blocking=True)
-           input_mask = input_mask[:, :max_len].cuda(self.args.gpu, non_blocking=True)
-           seg_ids = seg_ids[:, :max_len].cuda(self.args.gpu, non_blocking=True)
-           start_positions = start_positions.cuda(self.args.gpu, non_blocking=True)
-           end_positions = end_positions.cuda(self.args.gpu, non_blocking=True)
+            input_ids = input_ids[:, :max_len].cuda(self.args.gpu, non_blocking=True)
+            input_mask = input_mask[:, :max_len].cuda(self.args.gpu, non_blocking=True)
+            seg_ids = seg_ids[:, :max_len].cuda(self.args.gpu, non_blocking=True)
+            start_positions = start_positions.cuda(self.args.gpu, non_blocking=True)
+            end_positions = end_positions.cuda(self.args.gpu, non_blocking=True)
            
-           model = self.bert.to('cuda')
+            model = self.bert.to('cuda')
            
-           logits = self.qa_outputs(torch.stack(model(
-               input_ids,
-               attention_mask=input_mask,
-               token_type_ids=seg_ids
-           )[0]))
+            logits = self.qa_outputs(torch.stack(model(
+                input_ids,
+                attention_mask=input_mask,
+                token_type_ids=seg_ids
+            )[0]))
             log_prob = F.log_softmax(logits, dim=0)
             #log_prob = F.log_softmax(torch.rand(len(seq_len),1), dim=0)
             loglikelihoods.append(log_prob)
