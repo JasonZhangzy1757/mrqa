@@ -105,8 +105,9 @@ class BaseTrainer(object):
             
             model = self.bert.to('cuda')
             model = nn.DataParallel(model)
-            
-            logits = self.qa_outputs(torch.stack(model(input_ids)[0]))
+            outpus = model(input_ids)
+            sequence_output = torch.stack(outpus[0])
+            logits = self.qa_outputs(sequence_output)
             log_prob = F.log_softmax(logits, dim=0)
             #log_prob = F.log_softmax(torch.rand(len(seq_len),1), dim=0)
             loglikelihoods.append(log_prob)
