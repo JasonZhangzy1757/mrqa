@@ -102,13 +102,12 @@ class BaseTrainer(object):
             
             model = self.bert.to('cuda')
             try:
-                x=model(
-                   input_ids,
-                   attention_mask=input_mask,
-                   token_type_ids=seg_ids
-                )[0]
+                x=model(input_ids)[0]
                 x=torch.stack(x)
                 logits = self.qa_outputs(x)
+                log_prob = F.log_softmax(logits, dim=0)
+                #log_prob = F.log_softmax(torch.rand(len(seq_len),1), dim=0)
+                loglikelihoods.append(log_prob)
 
             except RuntimeError as exception:
                 if "out of memory" in str(exception):
@@ -119,9 +118,7 @@ class BaseTrainer(object):
                     raise exception
 
 
-            log_prob = F.log_softmax(logits, dim=0)
-            #log_prob = F.log_softmax(torch.rand(len(seq_len),1), dim=0)
-            loglikelihoods.append(log_prob)
+            
             gc.collect()
                  #F.log_softmax(self(x), dim=1)[range(batch_size), y.data]
              #)
