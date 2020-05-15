@@ -104,10 +104,9 @@ class BaseTrainer(object):
             start_positions = start_positions.cuda(self.args.gpu, non_blocking=True)
             end_positions = end_positions.cuda(self.args.gpu, non_blocking=True)
             
-            
-            model = self.bert.to('cuda')
-            model = nn.DataParallel(model)
             try:
+                model = self.bert.to('cuda')
+                model = nn.DataParallel(model)
                 outpus = model(input_ids)
                 sequence_output = torch.stack(outpus[0])
                 logits = self.qa_outputs(sequence_output)
@@ -116,11 +115,9 @@ class BaseTrainer(object):
                     print("WARNING: out of memory")
                     if hasattr(torch.cuda, 'empty_cache'):
                         torch.cuda.empty_cache()
-
-                        sequence_output = torch.stack(outpus[0])
-                        logits = self.qa_outputs(sequence_output)
                 else:
                     raise exception
+            
             log_prob = F.log_softmax(logits, dim=0)
             #log_prob = F.log_softmax(torch.rand(len(seq_len),1), dim=0)
             loglikelihoods.append(log_prob)
