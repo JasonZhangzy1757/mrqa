@@ -29,6 +29,7 @@ from torch import autograd
 from pytorch_pretrained_bert import BertModel, BertConfig
 import torch.nn as nn
 import torch.nn.functional as F
+import tqdm
 
 def get_opt(param_optimizer, num_train_optimization_steps, args):
     """
@@ -85,7 +86,7 @@ class BaseTrainer(object):
         
         # sample loglikelihoods from the dataset.
         loglikelihoods = []
-        for i, batch in enumerate(data_loader, start=1):
+        for i, batch in tqdm(enumerate(data_loader, start=1)):
             input_ids, input_mask, seg_ids, start_positions, end_positions, _ = batch
             seq_len = torch.sum(torch.sign(input_ids),1).detach()
             max_len = torch.max(seq_len).detach()
