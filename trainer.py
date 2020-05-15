@@ -116,7 +116,7 @@ class BaseTrainer(object):
                     print("WARNING: out of memory")
                     if hasattr(torch.cuda, 'empty_cache'):
                         torch.cuda.empty_cache()
-                        outpus = model(input_ids)
+
                         sequence_output = torch.stack(outpus[0])
                         logits = self.qa_outputs(sequence_output)
                 else:
